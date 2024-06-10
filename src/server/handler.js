@@ -1,11 +1,12 @@
+const predictionHandler = require('../services/inferenceService');
 const axios = require('axios');
 require('dotenv').config();
 
 const getNearbyFood = async (request, h) => {
-    const { location, radius } = request.query;
+    const { location, radius, user_input, kind_of_food } = request.query;
 
-    if (!location || !radius) {
-        return h.response({ error: 'Location and radius are required' }).code(400);
+    if (!location || !radius || !user_input || !kind_of_food) {
+        return h.response({ error: 'Location, radius, user_input, and kind_of_food are required' }).code(400);
     }
 
     try {
@@ -18,7 +19,23 @@ const getNearbyFood = async (request, h) => {
             }
         });
 
-        return h.response(response.data).code(200);
+        const restaurants = response.data.results;
+
+        const model = await predictionHandler(); // Load model here
+        const predictions = await Promise.all(
+            restaurants.map(async (restaurant) => {
+                const score = await model.predict(user_input, kind_of_food);
+                return { ...restaurant, score };
+            })
+        );
+
+        predictions.sort((a, b) => {
+            const distanceA = a.geometry.location.lat - location.split(',')[0];
+            const distanceB = b.geometry.location.lat - location.split(',')[0];
+            return distanceA - distanceB || b.score - a.score;
+        });
+
+        return h.response(predictions).code(200);
     } catch (error) {
         console.error(error);
         return h.response({ error: 'An error occurred' }).code(500);
