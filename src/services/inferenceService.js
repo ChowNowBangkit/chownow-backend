@@ -1,4 +1,4 @@
-const tf = require('@tensorflow/tfjs');
+const tf = require('@tensorflow/tfjs-node');
 
 // Handler untuk melakukan prediksi
 async function predictionHandler(request, h, model) {
