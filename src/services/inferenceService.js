@@ -1,21 +1,24 @@
 const tf = require('@tensorflow/tfjs-node');
 
-// Handler untuk melakukan prediksi
-async function predictionHandler(request, h, model) {
-    try {
-        const { input1, input2 } = request.payload; // Asumsi input dari client berupa array
-        const tensor1 = tf.tensor2d(input1, [1, input1.length]); // Ubah input menjadi tensor
-        const tensor2 = tf.tensor2d(input2, [1, input2.length]);
+const makeRecommendation = (model, userInput, itemInput) => {
+  try {
+    const userTensor = tf.tensor2d([userInput]);
+    const itemTensor = tf.tensor2d([itemInput]);
 
-        // Prediksi menggunakan model
-        const prediction = model.predict([tensor1, tensor2]);
-        const result = await prediction.array();
+    const userPrediction = model.predict(userTensor);
+    const itemPrediction = model.predict(itemTensor);
 
-        return h.response(result).code(200);
-    } catch (error) {
-        console.error(error);
-        return h.response({ error: 'Prediction failed' }).code(500);
-    }
-}
+    // Hitung dot product dari dua prediksi
+    const dotProduct = tf.matMul(userPrediction, tf.transpose(itemPrediction));
 
-module.exports = predictionHandler;
+    // Ambil nilai dari hasil dot product
+    const recommendation = dotProduct.dataSync()[0];
+
+    return recommendation;
+  } catch (error) {
+    console.error('Gagal melakukan prediksi:', error);
+    throw new Error('Gagal melakukan prediksi');
+  }
+};
+
+module.exports = { makeRecommendation };

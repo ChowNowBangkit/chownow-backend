@@ -1,15 +1,20 @@
-const { getNearbyFood, getAllReviewHandler } = require('../server/handler');
+const { getRecommend, getReviews } = require('../server/handler');
 
     const routes = [
+    /*{
+        method: 'GET',
+        path: '/userlocation',
+        handler: getLocationHandler,
+    },*/
     {
         method: 'GET',
-        path: '/nearby-food',
-        handler: getNearbyFood,
+        path: '/review',
+        handler: getReviews,
     },
     {
-        method: 'GET',
-        path: '/ulasan',
-        handler: getAllReviewHandler,
+        method: 'POST',
+        path: '/recommend',
+        handler: getRecommend,
     },
   ];
    

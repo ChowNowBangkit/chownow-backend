@@ -1,5 +1,11 @@
 const tf = require('@tensorflow/tfjs-node');
-async function loadModel() {
-    return tf.loadGraphModel(process.env.MODEL_URL);
-}
+const loadModel = () => {
+    try {
+      const model = tf.loadLayersModel(process.env.MODEL_URL);
+      return model;
+    } catch (error) {
+      console.error('Gagal memuat model:', error);
+      return null;
+    }
+  }
 module.exports = loadModel;
