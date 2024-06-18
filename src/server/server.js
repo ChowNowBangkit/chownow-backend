@@ -1,6 +1,7 @@
 const Hapi = require('@hapi/hapi');
 const routes = require('../server/routes');
 const loadModel = require('../services/loadModel');
+//const authMiddleware = require('../server/middlewares/authMiddleware');
 require('dotenv').config();
 
 (async () => {
@@ -8,7 +9,7 @@ require('dotenv').config();
     // Inisialisasi server Hapi
     const server = Hapi.server({
       port: process.env.PORT || 3000, // Gunakan PORT dari .env jika ada
-      host: 'localhost',
+      host: '0.0.0.0',
       routes: {
         cors: {
           origin: ['*'], // Mengizinkan semua origin
@@ -27,6 +28,9 @@ require('dotenv').config();
 
     // Menambahkan rute
     server.route(routes);
+
+    // Register middleware
+    //server.ext('onRequest', authMiddleware);
 
     // Mulai server
     await server.start();
