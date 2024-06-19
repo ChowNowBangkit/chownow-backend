@@ -1,4 +1,4 @@
-const { getRecommend, getReviews } = require('../server/handler');
+const { getRecommend, getReviews, getMenuByRestaurantId, getReviewsByRestaurantId } = require('../server/handler');
 const AuthController = require('../server/controllers/authController');
 const authMiddleware = require('../server/middlewares/authMiddleware');
 
@@ -10,7 +10,7 @@ const authMiddleware = require('../server/middlewares/authMiddleware');
     },*/
     {
         method: 'GET',
-        path: '/review',
+        path: '/reviews',
         handler: getReviews,
     },
     {
@@ -35,7 +35,17 @@ const authMiddleware = require('../server/middlewares/authMiddleware');
         options: {
             pre: [authMiddleware]
         }
-    }
+    },
+    {
+        method: 'GET',
+        path: '/menu/{restaurantId}',
+        handler: getMenuByRestaurantId,
+    },
+    {
+        method: 'GET',
+        path: '/review/{restaurantId}',
+        handler: getReviewsByRestaurantId,
+    },
   ];
    
 module.exports = routes;
