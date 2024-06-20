@@ -9,7 +9,8 @@ const User = {
           reject(error);
           return;
         }
-        resolve(results);
+        //resolve(results);
+        resolve({ ...userData, id: results.insertId });
       });
     });
   },

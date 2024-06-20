@@ -8,8 +8,11 @@ const AuthController = {
       const { name, username, email, password } = request.payload;
       const hashedPassword = await bcrypt.hash(password, 10);
       const newUser = { name, username, email, password: hashedPassword };
-      await User.create(newUser);
-      return h.response({ message: 'User registered successfully' }).code(201);
+      const createdUser = await User.create(newUser);
+      return h.response({ 
+        message: 'User registered successfully',
+        userId: createdUser.id
+       }).code(201);
     } catch (error) {
       console.error('Error in register:', error);
       return h.response({ error: error.message }).code(500);
@@ -27,7 +30,10 @@ const AuthController = {
         return h.response({ error: 'Invalid email or password' }).code(400);
       }
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      return h.response({ token });
+      return h.response({ 
+        token,
+        userId: user.id
+       });
     } catch (error) {
       console.error('Error in login:', error);
       return h.response({ error: error.message }).code(500);

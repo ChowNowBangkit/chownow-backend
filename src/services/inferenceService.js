@@ -10,7 +10,7 @@ const oneHotEncode = (item, uniqueCategories) => {
       encoding[index] = 1;
     }
     return encoding;
-  };
+};
 
 /*const getUserData = (userId) => {
   return new Promise((resolve, reject) => {
@@ -60,7 +60,7 @@ const oneHotEncode = (item, uniqueCategories) => {
     });
 };*/
 
-const getUserData = (userId) => {
+/*const getUserData = (userId) => {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT customers.age, customers.gender, customers.click, customers.kind_of_food, customers.restaurant_history
@@ -108,6 +108,40 @@ const getUserData = (userId) => {
       });
     });
   });
+};*/
+
+const getUserData = (userId) => {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT age, gender
+            FROM customers
+            WHERE id = ?;
+        `;
+        connection.query(query, [userId], (error, results) => {
+            if (error) return reject(error);
+            const userData = results[0];
+
+            // Dapatkan daftar unik gender dari database untuk One-Hot Encoding
+            connection.query(`
+                SELECT DISTINCT gender FROM customers;
+            `, (error, results) => {
+                if (error) return reject(error);
+
+                const uniqueGenders = results.map(res => res.gender);
+
+                // Lakukan One-Hot Encoding untuk gender
+                const genderEncoded = oneHotEncode(userData.gender, uniqueGenders);
+
+                // Konversi data ke tipe numerik jika diperlukan
+                const userInput = [
+                    parseInt(userData.age, 10) || 0,  // Konversi age ke bilangan bulat
+                    ...genderEncoded                 // Tambahkan hasil One-Hot Encoding untuk gender
+                ];
+
+                resolve(userInput); // Asumsikan hasilnya satu baris
+            });
+        });
+    });
 };
   
 
@@ -142,7 +176,7 @@ const getUserData = (userId) => {
     });
 };*/
 
-const getItemData = () => {
+/*const getItemData = () => {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT p.kind_of_food, r.name AS restaurant
@@ -164,6 +198,44 @@ const getItemData = () => {
   
         resolve(itemInput);
       });
+    });
+};*/
+
+const getItemData = () => {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT 
+                o.total_spend,
+                c.kind_of_food,
+                c.restaurant_history,
+                c.click,
+                c.location,
+                rv.comment AS review_category
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.id
+            JOIN reviews rv ON rv.customer_id = c.id;
+        `;
+        connection.query(query, (error, results) => {
+            if (error) return reject(error);
+
+            // Dapatkan daftar unik untuk fitur yang memerlukan One-Hot Encoding
+            const uniqueKindOfFood = [...new Set(results.map(item => item.kind_of_food))];
+            const uniqueRestaurants = [...new Set(results.map(item => item.restaurant_history))];
+            const uniqueLokasiResto = [...new Set(results.map(item => item.location))];
+            const uniqueReviewCategory = [...new Set(results.map(item => item.review_category))];
+
+            // Lakukan One-Hot Encoding untuk setiap item dalam results
+            const itemInput = results.map(item => [
+                parseFloat(item.total_spend) || 0,                      // Konversi harga_beli ke float
+                ...oneHotEncode(item.kind_of_food, uniqueKindOfFood),  // One-Hot Encoding untuk kind_of_food
+                ...oneHotEncode(item.restaurant_history, uniqueRestaurants),   // One-Hot Encoding untuk restaurant
+                parseInt(item.click, 10) || 0,            // Konversi jumlah_klik_produk ke bilangan bulat
+                ...oneHotEncode(item.location, uniqueLokasiResto), // One-Hot Encoding untuk lokasi_resto
+                ...oneHotEncode(item.review_category, uniqueReviewCategory) // One-Hot Encoding untuk review_category
+            ]);
+
+            resolve(itemInput);
+        });
     });
 };
 
@@ -219,14 +291,25 @@ const makeRecommendation = async (model, userId) => {
       const itemTensor = tf.tensor2d(itemInput, [itemInput.length, itemInput[0].length]);
   
       // Lakukan prediksi
+      /*const predictions = model.predict([userTensor, itemTensor]);
+      const recommendation = predictions.arraySync();*/
       const predictions = model.predict([userTensor, itemTensor]);
-      const recommendation = predictions.arraySync();
-  
+      const recommendation = predictions.arraySync()[0];
+
+      // Pasangkan setiap skor dengan ID item yang sesuai
+      const recommendationWithIds = itemInput.map((item, index) => ({
+        recommended_restaurant_id: item.id,
+        score: recommendation[index]
+      }));
+
+      // Urutkan rekomendasi berdasarkan skor (desc)
+      const sortedRecommendations = recommendationWithIds.sort((a, b) => b.score - a.score);
+
       // Simpan hasil rekomendasi
-      await saveRecommendation(userId, recommendation);
+      await saveRecommendation(userId, sortedRecommendations);
   
       // Dapatkan nama restoran dan rating
-      const recommendedRestaurants = await getRecommendedRestaurants(recommendation);
+      const recommendedRestaurants = await getRecommendedRestaurants(sortedRecommendations);
       return recommendedRestaurants;
     } catch (error) {
       console.error('Gagal melakukan prediksi:', error);
@@ -296,9 +379,15 @@ const getRecommendedRestaurants = (recommendations) => {
           //const restaurant = results.find(res => res.id === rec[1]);
           const restaurant = results.find(res => res.id === rec.recommended_restaurant_id);
           const imageUrl = `https://storage.googleapis.com/restaurant-images-chownow/${rec.recommended_restaurant_id}`;
-          return {
+          /*return {
             recommended_restaurant_id: rec[1],
             score: rec[2],
+            name: restaurant ? restaurant.name : 'Unknown',
+            rating: restaurant ? restaurant.rating : 0,
+            image_url: imageUrl
+          };*/
+          return {
+            ...rec,
             name: restaurant ? restaurant.name : 'Unknown',
             rating: restaurant ? restaurant.rating : 0,
             image_url: imageUrl
@@ -394,4 +483,4 @@ const getSavedRecommendations = (userId) => {
     });
 };
 
-module.exports = { makeRecommendation, getMenuItems, getReviewItems };
+module.exports = { makeRecommendation, getMenuItems, getReviewItems, getRecommendedRestaurants };

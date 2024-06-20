@@ -1,4 +1,4 @@
-const { makeRecommendation, getMenuItems, getReviewItems } = require('../services/inferenceService');
+const { makeRecommendation, getMenuItems, getReviewItems, getRecommendedRestaurants } = require('../services/inferenceService');
 const connection = require('../services/storeData');
 //const axios = require('axios');
 require('dotenv').config();
@@ -30,7 +30,8 @@ const getRecommend = async (request, h) => {
 
     try {
       const recommendation = await makeRecommendation(model, userId);
-      return h.response({ recommendation });
+      const recommendedRestaurants = await getRecommendedRestaurants(recommendation);
+      return h.response({ recommendation: recommendedRestaurants });
     } catch (error) {
       console.error('Gagal membuat rekomendasi:', error);
       return h.response({ error: 'Gagal membuat rekomendasi' }).code(500);
