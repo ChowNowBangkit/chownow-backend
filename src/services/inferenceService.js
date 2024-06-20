@@ -2,7 +2,7 @@ const tf = require('@tensorflow/tfjs-node');
 const connection = require('../services/storeData');
 
 // Fungsi untuk melakukan One-Hot Encoding
-const oneHotEncode = (item, uniqueCategories) => {
+/*const oneHotEncode = (item, uniqueCategories) => {
     const numCategories = uniqueCategories.length;
     const encoding = new Array(numCategories).fill(0);
     const index = uniqueCategories.indexOf(item);
@@ -10,6 +10,31 @@ const oneHotEncode = (item, uniqueCategories) => {
       encoding[index] = 1;
     }
     return encoding;
+};*/
+
+/*const encodeAndScale = (data, uniqueValues) => {
+  const labelEncoder = new LabelEncoder();
+  const scaler = new StandardScaler();
+
+  const encodedData = data.map((item, index) => {
+    const encodedItem = labelEncoder.fitTransform([item])[0];
+    return parseFloat(encodedItem);
+  });
+
+  const scaledData = scaler.fitTransform(encodedData);
+  return scaledData;
+};*/
+
+// Fungsi untuk melakukan encoding kategorikal secara manual
+const encodeCategorical = (item, uniqueValues) => {
+  return uniqueValues.indexOf(item);
+};
+
+// Fungsi untuk melakukan scaling data secara manual
+const scaleData = (data) => {
+  const mean = data.reduce((sum, val) => sum + val, 0) / data.length;
+  const stdDev = Math.sqrt(data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length);
+  return data.map(val => (val - mean) / stdDev);
 };
 
 /*const getUserData = (userId) => {
@@ -111,39 +136,35 @@ const oneHotEncode = (item, uniqueCategories) => {
 };*/
 
 const getUserData = (userId) => {
-    return new Promise((resolve, reject) => {
-        const query = `
-            SELECT age, gender
-            FROM customers
-            WHERE id = ?;
-        `;
-        connection.query(query, [userId], (error, results) => {
-            if (error) return reject(error);
-            const userData = results[0];
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT age, gender
+      FROM customers
+      WHERE id = ?;
+    `;
+    connection.query(query, [userId], (error, results) => {
+      if (error) return reject(error);
+      const userData = results[0];
 
-            // Dapatkan daftar unik gender dari database untuk One-Hot Encoding
-            connection.query(`
-                SELECT DISTINCT gender FROM customers;
-            `, (error, results) => {
-                if (error) return reject(error);
+      if (!userData) return reject(new Error('User data not found'));
 
-                const uniqueGenders = results.map(res => res.gender);
+      connection.query('SELECT DISTINCT gender FROM customers', (error, results) => {
+        if (error) return reject(error);
 
-                // Lakukan One-Hot Encoding untuk gender
-                const genderEncoded = oneHotEncode(userData.gender, uniqueGenders);
+        const uniqueGenders = results.map(res => res.gender);
 
-                // Konversi data ke tipe numerik jika diperlukan
-                const userInput = [
-                    parseInt(userData.age, 10) || 0,  // Konversi age ke bilangan bulat
-                    ...genderEncoded                 // Tambahkan hasil One-Hot Encoding untuk gender
-                ];
+        const genderEncoded = encodeCategorical(userData.gender, uniqueGenders);
 
-                resolve(userInput); // Asumsikan hasilnya satu baris
-            });
-        });
+        const userInput = [
+          parseInt(userData.age, 10) || 0,
+          genderEncoded
+        ];
+
+        resolve(userInput);
+      });
     });
-};
-  
+  });
+};  
 
 /*const getItemData = () => {
   return new Promise((resolve, reject) => {
@@ -210,29 +231,69 @@ const getItemData = () => {
                 c.restaurant_history,
                 c.click,
                 c.location,
-                rv.comment AS review_category
+                rv.comment AS review_category,
+                r.id AS restaurant_id
             FROM orders o
             JOIN customers c ON o.customer_id = c.id
-            JOIN reviews rv ON rv.customer_id = c.id;
+            JOIN reviews rv ON rv.customer_id = c.id
+            JOIN restaurants r ON o.restaurant_id = r.id;
         `;
         connection.query(query, (error, results) => {
             if (error) return reject(error);
 
-            // Dapatkan daftar unik untuk fitur yang memerlukan One-Hot Encoding
+            /// Dapatkan daftar unik untuk fitur yang memerlukan One-Hot Encoding
             const uniqueKindOfFood = [...new Set(results.map(item => item.kind_of_food))];
             const uniqueRestaurants = [...new Set(results.map(item => item.restaurant_history))];
-            const uniqueLokasiResto = [...new Set(results.map(item => item.location))];
-            const uniqueReviewCategory = [...new Set(results.map(item => item.review_category))];
+            const uniqueLocations = [...new Set(results.map(item => item.location))];
+            const uniqueReviewCategories = [...new Set(results.map(item => item.review_category))];
+
+            const totalSpendData = results.map(item => parseFloat(item.total_spend) || 0);
+            const clickData = results.map(item => parseInt(item.click, 10) || 0);
+
+            const scaledTotalSpend = scaleData(totalSpendData);
+            const scaledClick = scaleData(clickData);
+
+            // Batasi jumlah fitur One-Hot Encoding
+            /*const limitedUniqueKindOfFood = uniqueKindOfFood.slice(0, 1);  // Batasi menjadi 1 fitur
+            const limitedUniqueRestaurants = uniqueRestaurants.slice(0, 1);  // Batasi menjadi 1 fitur
+            const limitedUniqueLokasiResto = uniqueLokasiResto.slice(0, 1);  // Batasi menjadi 1 fitur
+            const limitedUniqueReviewCategory = uniqueReviewCategory.slice(0, 1);  // Batasi menjadi 1 fitur
+            */
 
             // Lakukan One-Hot Encoding untuk setiap item dalam results
-            const itemInput = results.map(item => [
+            /*const itemInput = results.map(item => [
                 parseFloat(item.total_spend) || 0,                      // Konversi harga_beli ke float
                 ...oneHotEncode(item.kind_of_food, uniqueKindOfFood),  // One-Hot Encoding untuk kind_of_food
                 ...oneHotEncode(item.restaurant_history, uniqueRestaurants),   // One-Hot Encoding untuk restaurant
                 parseInt(item.click, 10) || 0,            // Konversi jumlah_klik_produk ke bilangan bulat
                 ...oneHotEncode(item.location, uniqueLokasiResto), // One-Hot Encoding untuk lokasi_resto
                 ...oneHotEncode(item.review_category, uniqueReviewCategory) // One-Hot Encoding untuk review_category
-            ]);
+            ]);*/
+
+            // Lakukan One-Hot Encoding untuk setiap item dalam results
+            /*const itemInput = results.map(item => ({
+              id: item.restaurant_id,  // Pastikan ID valid
+              values: [
+                  parseFloat(item.total_spend) || 0,  // Konversi harga_beli ke float
+                  ...oneHotEncode(item.kind_of_food, limitedUniqueKindOfFood),  // One-Hot Encoding untuk kind_of_food
+                  ...oneHotEncode(item.restaurant_history, limitedUniqueRestaurants),   // One-Hot Encoding untuk restaurant
+                  parseInt(item.click, 10) || 0,  // Konversi jumlah_klik_produk ke bilangan bulat
+                  ...oneHotEncode(item.location, limitedUniqueLokasiResto), // One-Hot Encoding untuk lokasi_resto
+                  ...oneHotEncode(item.review_category, limitedUniqueReviewCategory) // One-Hot Encoding untuk review_category
+                ]
+            }));*/
+
+            const itemInput = results.map((item, index) => ({
+              id: item.restaurant_id,
+              values: [
+                scaledTotalSpend[index],
+                encodeCategorical(item.kind_of_food, uniqueKindOfFood),
+                encodeCategorical(item.restaurant_history, uniqueRestaurants),
+                scaledClick[index],
+                encodeCategorical(item.location, uniqueLocations),
+                encodeCategorical(item.review_category, uniqueReviewCategories)
+              ]
+            }));
 
             resolve(itemInput);
         });
@@ -287,8 +348,12 @@ const makeRecommendation = async (model, userId) => {
       const itemInput = await getItemData();
   
       // Buat tensor dari data yang di-query
+      //const userTensor = tf.tensor2d([userInput], [1, userInput.length]);
+      //const itemTensor = tf.tensor2d(itemInput, [itemInput.length, itemInput[0].length]);
+
       const userTensor = tf.tensor2d([userInput], [1, userInput.length]);
-      const itemTensor = tf.tensor2d(itemInput, [itemInput.length, itemInput[0].length]);
+      const itemValues = itemInput.map(item => item.values);
+      const itemTensor = tf.tensor2d(itemValues, [itemValues.length, itemValues[0].length]);
   
       // Lakukan prediksi
       /*const predictions = model.predict([userTensor, itemTensor]);
@@ -299,8 +364,15 @@ const makeRecommendation = async (model, userId) => {
       // Pasangkan setiap skor dengan ID item yang sesuai
       const recommendationWithIds = itemInput.map((item, index) => ({
         recommended_restaurant_id: item.id,
-        score: recommendation[index]
-      }));
+        score: parseFloat(recommendation[index])
+      })).filter(rec => !isNaN(rec.score));
+      
+
+      /*const recommendationWithIds = itemInput.map((item, index) => ({
+        recommended_restaurant_id: item.id,
+        score: Math.max(0, parseFloat(recommendation[index])) // Ensure score is non-negative
+      })).filter(rec => !isNaN(rec.score));*/
+  
 
       // Urutkan rekomendasi berdasarkan skor (desc)
       const sortedRecommendations = recommendationWithIds.sort((a, b) => b.score - a.score);
@@ -451,9 +523,30 @@ const saveRecommendation = (userId, recommendations) => {
         const restaurantIds = restaurantIdsResults.map(restaurant => restaurant.id);
   
         // Filter rekomendasi agar hanya memasukkan yang valid
-        const values = recommendations
+        /*const values = recommendations
           .map((rec, index) => [userId, restaurantIds[index], rec])
-          .filter((value) => restaurantIds.includes(value[1]));
+          .filter((value) => restaurantIds.includes(value[1]));*/
+        
+        // Filter rekomendasi agar hanya memasukkan yang valid
+        /*const values = recommendations
+          .map((rec) => [userId, rec.recommended_restaurant_id, parseFloat(rec.score)]) // Ensure score is a float
+          .filter((value) => {
+            const isValid = restaurantIds.includes(value[1]) && !isNaN(value[2]);
+            if (!isValid) {
+                console.log('Invalid recommendation:', value);  // Debugging
+            }
+            return isValid;
+        });*/
+
+        const values = recommendations
+          .map((rec) => [userId, rec.recommended_restaurant_id, parseFloat(rec.score)]) // Ensure score is a float
+          .filter((value) => {
+            const isValid = restaurantIds.includes(value[1]);
+            if (!isValid || isNaN(value[2])) {
+              console.log('Invalid recommendation:', value);  // Debugging
+            }
+            return isValid && !isNaN(value[2]);
+          });
   
         if (values.length === 0) {
           return reject(new Error('No valid recommendations to save'));

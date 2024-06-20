@@ -31,7 +31,13 @@ const getRecommend = async (request, h) => {
     try {
       const recommendation = await makeRecommendation(model, userId);
       const recommendedRestaurants = await getRecommendedRestaurants(recommendation);
-      return h.response({ recommendation: recommendedRestaurants });
+
+      // Ambil rekomendasi pertama dan ulangi hingga 5 kali
+      const firstRecommendation = recommendedRestaurants[0];
+      const repeatedRecommendations = Array(5).fill(firstRecommendation);
+
+      //return h.response({ recommendation: recommendedRestaurants });
+      return h.response({ recommendation: repeatedRecommendations });
     } catch (error) {
       console.error('Gagal membuat rekomendasi:', error);
       return h.response({ error: 'Gagal membuat rekomendasi' }).code(500);
@@ -40,10 +46,20 @@ const getRecommend = async (request, h) => {
 
 const getMenuByRestaurantId = async (request, h) => {
     const restaurantId = request.params.restaurantId;
+    const menuImage = `https://storage.googleapis.com/restaurant-images-chownow/menu.jpg`;
   
     try {
-      const menuItems = await getMenuItems(restaurantId);
-      return h.response({ menu: menuItems });
+        const menuItems = await getMenuItems(restaurantId);
+        
+        const menuWithImages = menuItems.map(item => {
+            return {
+              ...item,
+              image: menuImage
+            };
+        });
+        return h.response({ 
+            menu: menuWithImages
+        });
     } catch (error) {
       console.error('Gagal mengambil menu:', error);
       return h.response({ error: 'Gagal mengambil menu' }).code(500);
@@ -87,11 +103,12 @@ const getMenuByRestaurantId = async (request, h) => {
 const getReviews = async (request, h) => {
     return new Promise((resolve, reject) => {
         const query = `
-            SELECT reviews.comment, reviews.updated_at, customers.name AS customer_name, products.name AS product_name, orders.quantity
+            SELECT reviews.comment, reviews.updated_at, customers.name AS customer_name, products.name AS product_name, orders.quantity, restaurants.name AS restaurant_name
             FROM reviews
             JOIN customers ON reviews.customer_id = customers.id
             JOIN orders ON reviews.customer_id = orders.customer_id
-            JOIN products ON orders.product_id = products.id;
+            JOIN products ON orders.product_id = products.id
+            JOIN restaurants ON orders.restaurant_id = restaurants.id;
         `;
         connection.query(query, (error, results) => {
             if (error) return reject(error);
@@ -112,4 +129,41 @@ const getReviewsByRestaurantId = async (request, h) => {
     }
 };
 
-module.exports = {getReviews, getRecommend, getMenuByRestaurantId, getReviewsByRestaurantId};
+const getProfile = async (request, h) => {
+    const userId = request.params.userId;
+    const profileImageUrl = `https://storage.googleapis.com/restaurant-images-chownow/profile.jpg`;
+
+    try {
+        const userProfile = await fetchUserProfile(userId);
+
+        // Tambahkan URL gambar profil ke objek profil
+        const userProfileWithImage = {
+            ...userProfile,
+            profileImageUrl: profileImageUrl
+        };
+
+        return h.response({ profile: userProfileWithImage });
+    } catch (error) {
+        console.error('Gagal mengambil profil:', error);
+        return h.response({ error: 'Gagal mengambil profil' }).code(500);
+    }
+};
+
+const fetchUserProfile = (userId) => {
+    return new Promise((resolve, reject) => {
+        const query = 'SELECT name, email FROM customers WHERE id = ?';
+        connection.query(query, [userId], (error, results) => {
+            if (error) return reject(error);
+            if (results.length === 0) return reject(new Error('User not found'));
+
+            const userProfile = {
+                name: results[0].name,
+                email: results[0].email
+            };
+
+            resolve(userProfile);
+        });
+    });
+};
+
+module.exports = {getReviews, getRecommend, getMenuByRestaurantId, getReviewsByRestaurantId, getProfile};
