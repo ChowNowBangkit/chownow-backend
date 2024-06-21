@@ -40,32 +40,17 @@ DB_HOSTN=""
 # Your database name, e.g., chownow-db
 DB_NAME=""
 
-# Access token secret, no need to change
-ACCESS_TOKEN_SECRET="youraccesstokensecret"
+# JSON Web Token secret
+JWT_SECRET="your_jwt_secret_here"
 
-# Refresh token secret, no need to change
-REFRESH_TOKEN_SECRET="yourrefreshtokensecret"
+# Google Client ID
+GOOGLE_CLIENT_ID="your_google_client_id_here"
 
-# Your Midtrans server key
-MIDTRANS_SERVER_KEY=""
+# Google Client Secret
+GOOGLE_CLIENT_SECRET="your_google_client_secret_here"
 
-# Your Midtrans client key
-MIDTRANS_CLIENT_KEY=""
-
-# Your GCS bucket name
-GCS_BUCKET=""
-
-# project_id from your sa-credentials.json file
-GCLOUD_PROJECT=""
-
-# client_email from your sa-credentials.json file
-GCLOUD_CLIENT_EMAIL=""
-
-# private_key from your sa-credentials.json file
-GCLOUD_PRIVATE_KEY=""
-
-# Whitelisted IP addresses for CORS, e.g., http://localhost;http://localhost:3000 (use semicolon to separate)
-WHITELISTED=""
+# Cookie Secret
+COOKIE SECRET="your_cookie_secret_here"
 ```
 5. Install Dependencies
 
@@ -82,6 +67,6 @@ Run the app using the command:
 
 7. API Documentation
 
-You can check the public API documentation that we used for the mobile app here.
+You can check the public API documentation that we used for the mobile app [here](https://elements.getpostman.com/redirect?entityId=34629784-5348d12c-c11e-4017-8591-5db390292154&entityType=collection).
 
 
